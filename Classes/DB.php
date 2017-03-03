@@ -20,12 +20,12 @@ class DB {
 	private function __construct($host, $db, $user, $password, $port = NULL) {
 		$dsn = "mysql:host=$host;dbname=$db";
 		if(!is_null($port)) {
-			$dsn .= ";port=port";
+			$dsn .= ";port=$port";
 		}
 		try {
 			# Read settings from INI file, set UTF8
 			$this->pdo = new PDO($dsn, $user, $password, [
-				PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES UTF8"
+				PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"
 			]);
 
 		}
@@ -66,10 +66,8 @@ class DB {
 
 		if(is_array($select)) {
 			$sql .= implode(',', $select);
-		} elseif($select === '*') {
-			$sql .= '*';
 		} else {
-			return FALSE;
+			$sql .= $select;
 		}
 
 		$sql .= " FROM `$table_name`";
@@ -121,24 +119,76 @@ class DB {
 		$sql = 'SELECT COUNT(*) as count FROM '.$table_name;
 		$sth = $this->query($sql);
 
-		return  $sth ? $sth->fetchAll(PDO::FETCH_CLASS)[0]->count : FALSE;
+		$result = $sth->fetchAll(PDO::FETCH_CLASS);
+		return !empty(reset($result)) ? reset($result)->count : FALSE;
 	}
 
-	public function delete() {
+	public function remove($table_name, array $condition) {
+		$sql = "DELETE FROM $table_name WHERE ";
 
+		foreach($condition as $col => $value) {
+			if(is_array($value) ){
+				$sql .= "`$col` IN (".implode(',', $value).") AND ";
+				unset($condition[$col]);
+			} else {
+				$sql .= "`$col`=:$col AND ";
+			}
+
+			$sql = substr($sql, 0, -5);
+		}
+
+		return $this->query($sql, $condition);
 	}
 
-	public function update() {
+	public function update($table_name, $data, $condition) {
+		$sql = "UPDATE $table_name SET ";
 
+		foreach($data as $k => $v) {
+			$sql .= "`$k`='$v',";
+		}
+
+		$sql = substr($sql, 0, -1);
+
+		$sql .= ' WHERE ';
+		foreach($condition as $col => &$value) {
+			if(is_array($value) ){
+				$sql .= "`$col` IN (".implode(',', $value).") AND ";
+				unset($condition[$col]);
+			} else {
+				$sql .= "`$col`=:$col AND ";
+			}
+
+			$sql = substr($sql, 0, -5);
+		}
+
+		return $this->query($sql, $condition);
+	}
+
+	public function search_doubles($table_name, $offset = FALSE) {
+		$sql = "SELECT * FROM `$table_name` GROUP BY `name` HAVING COUNT(*) > 1 ORDER BY `id` ASC";
+		if($offset) {
+			$limit = $this->query($sql)->rowCount() - $offset;
+			$sql .= " LIMIT $offset, $limit";
+		}
+
+		return $this->query($sql)->fetchAll(PDO::FETCH_CLASS);
 	}
 
 	/**
-	 * Cîçäàåò íåîáõîäèìûå òàáëèöû
+	 * CÐ¾Ð·Ð´Ð°ÐµÑ‚ Ð½ÐµÐ¾Ð±Ñ…Ð¾Ð´Ð¸Ð¼Ñ‹Ðµ Ñ‚Ð°Ð±Ð»Ð¸Ñ†Ñ‹
 	 */
 	public function create_tables() {
+		$account_sql = '
+			CREATE TABLE IF NOT EXISTS `account` (
+			  `id` int(11) unsigned NOT NULL,
+			  `data` longtext,
+			  UNIQUE KEY `account` (`id`)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+		';
+
 		$customers_sql = '
 			CREATE TABLE IF NOT EXISTS `customers` (
-			  `id` int(11) DEFAULT NULL,
+			  `id` int(11) unsigned NOT NULL,
 			  `name` varchar(255) DEFAULT NULL,
 			  `data` longtext,
 			  UNIQUE KEY `customer_id` (`id`)
@@ -147,7 +197,7 @@ class DB {
 
 		$leads_sql = '
 			CREATE TABLE IF NOT EXISTS `leads` (
-			  `id` int(11) unsigned DEFAULT NULL,
+			  `id` int(11) unsigned NOT NULL,
 			  `name` varchar(255) DEFAULT NULL,
 			  `pipeline_id` int(11) unsigned DEFAULT NULL,
 			  `data` longtext,
@@ -158,7 +208,7 @@ class DB {
 		$runtime_log_sql = '
 			CREATE TABLE IF NOT EXISTS `runtime_log` (
 			  `step_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-			  `name` varchar(255) DEFAULT NULL,
+			  `description` varchar(255) DEFAULT NULL,
 			  `step_info` longtext,
 			  `date_start` int(11) NOT NULL,
 			  `date_end` int(11) DEFAULT NULL,
@@ -166,11 +216,11 @@ class DB {
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 		';
 
-		$this->query($customers_sql.$leads_sql.$runtime_log_sql);
+		$this->query($account_sql.$customers_sql.$leads_sql.$runtime_log_sql);
 	}
 
 	public function data_isset() {
-		$tables = ['customers', 'leads', 'runtime_log'];
+		$tables = ['account', 'customers', 'leads', 'runtime_log'];
 		foreach($tables as $table) {
 			if((int)$this->count($table) > 0) {
 				return TRUE;
@@ -187,14 +237,20 @@ class DB {
 	}
 
 	public function clear_data() {
-		$tables = ['customers', 'leads', 'runtime_log'];
+		$tables = ['account', 'customers', 'leads', 'runtime_log'];
 		foreach($tables as $table) {
 			$this->clear_table($table);
 		}
 	}
 
+	public function get_last_record($table_name) {
+		$result = $this->find($table_name, '*', NULL, NULL, ['limit' => 1]);
+		return !empty(reset($result)) ? reset($result): FALSE;
+	}
+
 	public function get_last_action() {
-		return $this->find('runtime_log', '*', NULL, [['step_id'],'DESC'], ['limit' => 1])[0];
+		$result = $this->find('runtime_log', '*', NULL, [['step_id'],'DESC'], ['limit' => 1]);
+		return !empty(reset($result)) ? reset($result): FALSE;
 	}
 
 	/**
