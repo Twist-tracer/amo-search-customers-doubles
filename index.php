@@ -1,77 +1,93 @@
 #!/usr/bin/env php
 <?php
 set_time_limit(0);
-$cli = new Cli();
+$starttime = time();
 $config = require 'config.php';
 
-define('API_LIMIT_ROWS', 5);
-$api_offset = 0;
+define('API_LIMIT_ROWS', $config['api']['limit_rows']);
+define('DOUBLE_TAG', $config['main']['double_tag']);
 
 function __autoload($classname) {
 	$filename = __DIR__.DIRECTORY_SEPARATOR."Classes".DIRECTORY_SEPARATOR. $classname .".php";
 	require_once $filename;
 }
 
-function answer($message) {
-	global $cli;
-	$return = FALSE;
-
-	echo $cli->getColoredString($message . " 'Y/N':", 'yellow').PHP_EOL;
-	$response = fgets(STDIN);
-	if(strtoupper(trim($response)) === 'Y') {
-		$return = TRUE;
-	} elseif(strtoupper(trim($response)) === 'N') {
-		$return = FALSE;
-	} else {
-		echo $cli->getColoredString("Wrong response! Choose 'Y' OR 'N'", 'red').PHP_EOL;
-		answer($message);
-	}
-
-	return $return;
-}
-
+$cli = new Cli();
 $db = DB::getInstance(
 	$config['db']['host'],
 	$config['db']['db'],
 	$config['db']['user'],
-	$config['db']['password']
+	$config['db']['password'],
+	$config['db']['charset']
 );
 $db->create_tables();
 
 $api = new AmoCRM_API(new Curl(), $config['api']);
 $api->auth();
 
-if($db->data_isset()) { // Åñëè â òàáëèöàõ åñòü äàííûå
-	if(answer('Continue?')) { // Ñïðîñèì ïðîäîëæèòü èëè íà÷àòü ïðîâåðêó çàíîâî
-		$last_action = $db->get_last_action();
-		goto step_2;
+if($db->data_isset()) { // Ð•ÑÐ»Ð¸ Ð² Ñ‚Ð°Ð±Ð»Ð¸Ñ†Ð°Ñ… ÐµÑÑ‚ÑŒ Ð´Ð°Ð½Ð½Ñ‹Ðµ
+	if($cli->answer('Continue?')) { // Ð¡Ð¿Ñ€Ð¾ÑÐ¸Ð¼ Ð¿Ñ€Ð¾Ð´Ð¾Ð»Ð¶Ð¸Ñ‚ÑŒ Ð¸Ð»Ð¸ Ð½Ð°Ñ‡Ð°Ñ‚ÑŒ Ð¿Ñ€Ð¾Ð²ÐµÑ€ÐºÑƒ Ð·Ð°Ð½Ð¾Ð²Ð¾
+		$last = $db->get_last_action();
+		$progress_info = json_decode($last->step_info, TRUE);
+
+		$step = $last->step_id; // TODO Ð·Ð°Ð¼ÐµÐ½Ð¸Ñ‚ÑŒ Ð¾Ð±Ñ€Ð°Ñ‚Ð½Ð¾
+		// $step = empty($last->date_end) ? $last->step_id : $last->step_id+1;
 	} else {
 		$db->clear_data();
 	}
 }
 
-step_1:
-echo $cli->getColoredString('Step 1. Getting leads by API...', 'green').PHP_EOL;
-$search = [
-	'limit_rows' => API_LIMIT_ROWS,
-	'limit_offset' => $api_offset
-];
-// Êà÷àåì âñå ñäåëêè
-while($leads = $api->find('leads', $search)) {
-	var_dump($search);
-	$data = [];
-	foreach($leads as $lead) {
-		$data[] = [
-			'id' => $lead['id'],
-			'name' => $lead['name'],
-			'pipeline_id' => $lead['pipeline_id'],
-			'data' => json_encode($lead)
-		];
-	}
+$app = new App($db, $api, $cli);
 
-	$db->add('leads', $data);
-	$search['limit_offset'] += API_LIMIT_ROWS;
+if(!isset($progress_info)) {
+	$progress_info = NULL;
 }
 
-step_2:
-echo 'step_2';
+if(!isset($step)) {
+	$step = 1;
+}
+
+switch($step) {
+	case 1:
+		$app->download(AmoCRM_API::ELEMENT_CUSTOMERS, $step, $progress_info);
+		$progress_info = NULL;
+		$step++;
+	case 2:
+		$app->merge_fields(AmoCRM_API::ELEMENT_CUSTOMERS, $step, $progress_info);
+		$progress_info = NULL;
+		$step++;
+	case 3:
+		$app->download(AmoCRM_API::ELEMENT_LEADS, $step, $progress_info);
+		$progress_info = NULL;
+		$step++;
+	case 4:
+		$app->merge_fields(AmoCRM_API::ELEMENT_LEADS, $step, $progress_info);
+		$progress_info = NULL;
+		$step++;
+	case 5:
+		$app->merge_tasks(AmoCRM_API::ELEMENT_LEADS, $step, $progress_info);
+		$progress_info = NULL;
+		$step++;
+	case 6:
+		$app->merge_chats(AmoCRM_API::ELEMENT_LEADS, $step, $progress_info);
+		$progress_info = NULL;
+		$step++;
+	case 7:
+		$app->merge_notes(AmoCRM_API::ELEMENT_LEADS, $step, $progress_info);
+		$progress_info = NULL;
+		$step++;
+	case 8:
+		$app->merge_contacts(AmoCRM_API::ELEMENT_LEADS, AmoCRM_API::ELEMENT_CONTACTS, $step, $progress_info);
+		$progress_info = NULL;
+		$step++;
+	case 9:
+		$app->merge_contacts(AmoCRM_API::ELEMENT_LEADS, AmoCRM_API::ELEMENT_COMPANIES, $step, $progress_info);
+		$progress_info = NULL;
+		$step++;
+	case 10:
+		$app->remove_doubles(AmoCRM_API::ELEMENT_LEADS, $step, $progress_info);
+		$progress_info = NULL;
+		$step++;
+}
+
+$cli->show_message("That's all. While the script ".(time() - $starttime).'c.');
