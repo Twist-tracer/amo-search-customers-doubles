@@ -52,6 +52,32 @@ class Cli {
 		return $colored_string;
 	}
 
+	public function answer($message) {
+		global $cli;
+		$return = FALSE;
+
+		echo $cli->getColoredString($message . " 'Y/N':", 'yellow').PHP_EOL;
+		$response = fgets(STDIN);
+		if(strtoupper(trim($response)) === 'Y') {
+			$return = TRUE;
+		} elseif(strtoupper(trim($response)) === 'N') {
+			$return = FALSE;
+		} else {
+			echo $cli->getColoredString("Wrong response! Choose 'Y' OR 'N'", 'red').PHP_EOL;
+			$return = $this->answer($message);
+		}
+
+		return $return;
+	}
+
+	public function show_message($message) {
+		echo $this->getColoredString($message, 'green').PHP_EOL;
+	}
+
+	public function show_progress($counter) {
+		echo "\r".$this->getColoredString($counter, 'green')." ";
+	}
+
 	// Returns all foreground color names
 	public function getForegroundColors() {
 		return array_keys($this->foreground_colors);
