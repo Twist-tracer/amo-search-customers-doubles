@@ -23,6 +23,24 @@ class AmoCRM_API {
 	const CUSTOMERS_TYPE =  12;
 	const TRANSACTIONS_TYPE =  13;
 
+	const NOTE_CUSTOMERS_TYPE = 22;
+	const NOTE_STATUS_TYPE = 3;
+	const NOTE_ENTITY_ADD_TYPE = 1;
+
+	public
+	$tasks_types = [
+		self::ELEMENT_LEADS => 'lead',
+		self::ELEMENT_CONTACTS => 'contact',
+		self::ELEMENT_COMPANIES => 'company',
+	],
+
+	$notes_types = [
+		self::ELEMENT_LEADS => 'lead',
+		self::ELEMENT_CONTACTS => 'contact',
+		self::ELEMENT_COMPANIES => 'company',
+		self::ELEMENT_TASKS => 'task',
+	];
+
 	protected
 		/** @var Curl */
 		$_curl,
@@ -46,9 +64,9 @@ class AmoCRM_API {
 		$_cookie_file,
 		/** @var string */
 		$_cookie_path,
-		/** @var bool Использовать ли куки */
+		/** @var bool РСЃРїРѕР»СЊР·РѕРІР°С‚СЊ Р»Рё РєСѓРєРё */
 		$_use_cookies = TRUE,
-		/** @var bool Авторизация по GET-параметрам: USER_LOGIN & USER_HASH */
+		/** @var bool РђРІС‚РѕСЂРёР·Р°С†РёСЏ РїРѕ GET-РїР°СЂР°РјРµС‚СЂР°Рј: USER_LOGIN & USER_HASH */
 		$_query_authorization = FALSE,
 		/** @var null|array */
 		$_response_info,
@@ -72,6 +90,7 @@ class AmoCRM_API {
 			'leads_set'             => '/private/api/v2/json/leads/set',
 			'notes'                 => '/private/api/v2/json/notes/list',
 			'notes_set'             => '/private/api/v2/json/notes/set',
+			'tasks'                 => '/private/api/v2/json/tasks/list',
 			'tasks_set'             => '/private/api/v2/json/tasks/set',
 			'pipelines'             => '/private/api/v2/json/pipelines/list',
 			'notifications'         => '/private/api/v2/json/notifications/list',
@@ -106,7 +125,7 @@ class AmoCRM_API {
 		$_headers = [];
 
 	/**
-	 * Устанавливает необходимые параметры для подключения
+	 * РЈСЃС‚Р°РЅР°РІР»РёРІР°РµС‚ РЅРµРѕР±С…РѕРґРёРјС‹Рµ РїР°СЂР°РјРµС‚СЂС‹ РґР»СЏ РїРѕРґРєР»СЋС‡РµРЅРёСЏ
 	 * @param Curl $curl
 	 */
 	public function __construct(Curl $curl, array $options)
@@ -154,7 +173,7 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Использовать ли авторизацию через GET-параметры: USER_LOGIN & USER_HASH
+	 * РСЃРїРѕР»СЊР·РѕРІР°С‚СЊ Р»Рё Р°РІС‚РѕСЂРёР·Р°С†РёСЋ С‡РµСЂРµР· GET-РїР°СЂР°РјРµС‚СЂС‹: USER_LOGIN & USER_HASH
 	 * @param bool $bool
 	 * @return $this
 	 */
@@ -165,7 +184,7 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Использовать ли куки
+	 * РСЃРїРѕР»СЊР·РѕРІР°С‚СЊ Р»Рё РєСѓРєРё
 	 * @param bool $bool
 	 * @return $this
 	 */
@@ -176,7 +195,7 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Добавление HTTP-заголовка для всех запросов
+	 * Р”РѕР±Р°РІР»РµРЅРёРµ HTTP-Р·Р°РіРѕР»РѕРІРєР° РґР»СЏ РІСЃРµС… Р·Р°РїСЂРѕСЃРѕРІ
 	 * @param string $header
 	 * @param string $value
 	 * @return $this
@@ -188,10 +207,10 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Отправка запроса
+	 * РћС‚РїСЂР°РІРєР° Р·Р°РїСЂРѕСЃР°
 	 * @param string $url         URL
-	 * @param mixed  $data        Данные для передачи
-	 * @param bool   $json_encode Сделать json_encode($data) и передать заголовок Content-Type: application/json
+	 * @param mixed  $data        Р”Р°РЅРЅС‹Рµ РґР»СЏ РїРµСЂРµРґР°С‡Рё
+	 * @param bool   $json_encode РЎРґРµР»Р°С‚СЊ json_encode($data) Рё РїРµСЂРµРґР°С‚СЊ Р·Р°РіРѕР»РѕРІРѕРє Content-Type: application/json
 	 * @return array|null
 	 */
 	protected function send_request($url, $data = NULL, $json_encode = FALSE)
@@ -384,8 +403,8 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Запрос на авторизацию
-	 * @return bool удалось ли автозироваться
+	 * Р—Р°РїСЂРѕСЃ РЅР° Р°РІС‚РѕСЂРёР·Р°С†РёСЋ
+	 * @return bool СѓРґР°Р»РѕСЃСЊ Р»Рё Р°РІС‚РѕР·РёСЂРѕРІР°С‚СЊСЃСЏ
 	 */
 	public function auth()
 	{
@@ -416,8 +435,8 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Запрос информации об аккаунте
-	 * @return array|bool массив с данными или FALSE в случае ошибки
+	 * Р—Р°РїСЂРѕСЃ РёРЅС„РѕСЂРјР°С†РёРё РѕР± Р°РєРєР°СѓРЅС‚Рµ
+	 * @return array|bool РјР°СЃСЃРёРІ СЃ РґР°РЅРЅС‹РјРё РёР»Рё FALSE РІ СЃР»СѓС‡Р°Рµ РѕС€РёР±РєРё
 	 */
 	public function get_account()
 	{
@@ -431,8 +450,8 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Получение списка сделок, связанных указанными контактами.
-	 * @param array $contacts_ids - id контактов
+	 * РџРѕР»СѓС‡РµРЅРёРµ СЃРїРёСЃРєР° СЃРґРµР»РѕРє, СЃРІСЏР·Р°РЅРЅС‹С… СѓРєР°Р·Р°РЅРЅС‹РјРё РєРѕРЅС‚Р°РєС‚Р°РјРё.
+	 * @param array $contacts_ids - id РєРѕРЅС‚Р°РєС‚РѕРІ
 	 * @param array $params - additional query params
 	 * @return array|bool
 	 */
@@ -442,9 +461,9 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Получение списка контактов, связанных указанными сделками.
-	 * @param array $leads_ids - id сделок
-	 * @param array $params - дополнительные GET-параметры
+	 * РџРѕР»СѓС‡РµРЅРёРµ СЃРїРёСЃРєР° РєРѕРЅС‚Р°РєС‚РѕРІ, СЃРІСЏР·Р°РЅРЅС‹С… СѓРєР°Р·Р°РЅРЅС‹РјРё СЃРґРµР»РєР°РјРё.
+	 * @param array $leads_ids - id СЃРґРµР»РѕРє
+	 * @param array $params - РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ GET-РїР°СЂР°РјРµС‚СЂС‹
 	 * @return array|bool
 	 */
 	public function get_leads_links($leads_ids, $params = [])
@@ -453,10 +472,10 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Получение связей между контактами и сделками.
+	 * РџРѕР»СѓС‡РµРЅРёРµ СЃРІСЏР·РµР№ РјРµР¶РґСѓ РєРѕРЅС‚Р°РєС‚Р°РјРё Рё СЃРґРµР»РєР°РјРё.
 	 * @param string $links_type - contacts_link / deals_link
-	 * @param array $ids - id сущностей
-	 * @param array $params - дополнительные GET-параметры
+	 * @param array $ids - id СЃСѓС‰РЅРѕСЃС‚РµР№
+	 * @param array $params - РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ GET-РїР°СЂР°РјРµС‚СЂС‹
 	 * @return array|bool
 	 */
 	protected function get_entities_links($links_type, $ids, $params = [])
@@ -535,12 +554,12 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Поиск по сущности
+	 * РџРѕРёСЃРє РїРѕ СЃСѓС‰РЅРѕСЃС‚Рё
 	 * @param string       $element - contacts | companies (company) | leads | pipelines | notifications | customers
-	 * @param string|array $search  - параметры запроса.
-	 * Поиск происходит по таким полям, как: почта, телефон и любым иным полям.
-	 * Не осуществляется поиск по заметкам и задачам.
-	 * @return array|false массив сущностей или FALSE в случае ошибки
+	 * @param string|array $search  - РїР°СЂР°РјРµС‚СЂС‹ Р·Р°РїСЂРѕСЃР°.
+	 * РџРѕРёСЃРє РїСЂРѕРёСЃС…РѕРґРёС‚ РїРѕ С‚Р°РєРёРј РїРѕР»СЏРј, РєР°Рє: РїРѕС‡С‚Р°, С‚РµР»РµС„РѕРЅ Рё Р»СЋР±С‹Рј РёРЅС‹Рј РїРѕР»СЏРј.
+	 * РќРµ РѕСЃСѓС‰РµСЃС‚РІР»СЏРµС‚СЃСЏ РїРѕРёСЃРє РїРѕ Р·Р°РјРµС‚РєР°Рј Рё Р·Р°РґР°С‡Р°Рј.
+	 * @return array|false РјР°СЃСЃРёРІ СЃСѓС‰РЅРѕСЃС‚РµР№ РёР»Рё FALSE РІ СЃР»СѓС‡Р°Рµ РѕС€РёР±РєРё
 	 */
 	public function find($element, $search)
 	{
@@ -551,10 +570,10 @@ class AmoCRM_API {
 		}
 
 		if (is_array($search)) {
-			// поиск по параметру ['id' => 123] или ['id' => [123, 456, 789]]
+			// РїРѕРёСЃРє РїРѕ РїР°СЂР°РјРµС‚СЂСѓ ['id' => 123] РёР»Рё ['id' => [123, 456, 789]]
 			$query = http_build_query($search);
 		} else {
-			// Поиск по строке
+			// РџРѕРёСЃРє РїРѕ СЃС‚СЂРѕРєРµ
 			$key = ($element === self::ELEMENT_CUSTOMERS) ? 'term' : 'query';
 			$query = http_build_query([$key => $search]);
 		}
@@ -567,7 +586,7 @@ class AmoCRM_API {
 			$element = 'links';
 		}
 
-		$element = ($element === 'company') ? 'contacts' : $element; // костыль для нашего API, которое компании возвращает как контакты
+		$element = ($element === 'company') ? 'contacts' : $element; // РєРѕСЃС‚С‹Р»СЊ РґР»СЏ РЅР°С€РµРіРѕ API, РєРѕС‚РѕСЂРѕРµ РєРѕРјРїР°РЅРёРё РІРѕР·РІСЂР°С‰Р°РµС‚ РєР°Рє РєРѕРЅС‚Р°РєС‚С‹
 		if (!$response || empty($response['response'][$element])) {
 			return [];
 		}
@@ -576,11 +595,11 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * Добавление сущностей
+	 * Р”РѕР±Р°РІР»РµРЅРёРµ СЃСѓС‰РЅРѕСЃС‚РµР№
 	 * @param string $element    - company | contacts | leads
-	 * @param array $action_data - массив массивов сущностей одного типа
-	 * @param array $post_data   - дополнительны данные для POST-запроса
-	 * @return bool результат
+	 * @param array $action_data - РјР°СЃСЃРёРІ РјР°СЃСЃРёРІРѕРІ СЃСѓС‰РЅРѕСЃС‚РµР№ РѕРґРЅРѕРіРѕ С‚РёРїР°
+	 * @param array $post_data   - РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹ РґР°РЅРЅС‹Рµ РґР»СЏ POST-Р·Р°РїСЂРѕСЃР°
+	 * @return bool СЂРµР·СѓР»СЊС‚Р°С‚
 	 */
 	public function add($element, $action_data, $post_data = [])
 	{
@@ -589,11 +608,11 @@ class AmoCRM_API {
 
 
 	/**
-	 * Обновление сущности
+	 * РћР±РЅРѕРІР»РµРЅРёРµ СЃСѓС‰РЅРѕСЃС‚Рё
 	 * @param $element - company | contacts | leads
-	 * @param $data - массив массивов сущностей одного типа
-	 * @param array $post_data - дополнительны данные для POST-запроса
-	 * @return bool результат
+	 * @param $data - РјР°СЃСЃРёРІ РјР°СЃСЃРёРІРѕРІ СЃСѓС‰РЅРѕСЃС‚РµР№ РѕРґРЅРѕРіРѕ С‚РёРїР°
+	 * @param array $post_data - РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹ РґР°РЅРЅС‹Рµ РґР»СЏ POST-Р·Р°РїСЂРѕСЃР°
+	 * @return bool СЂРµР·СѓР»СЊС‚Р°С‚
 	 */
 	public function update($element, $data, $post_data = [])
 	{
@@ -601,11 +620,54 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * POST-запрос на действие
+	 * Р”РѕР±Р°РІР»РµРЅРёРµ СЃРІСЏР·РµР№
+	 * @param string $element    - companies | contacts | leads | customers
+	 * @param array $action_data - РјР°СЃСЃРёРІ РјР°СЃСЃРёРІРѕРІ СЃСѓС‰РЅРѕСЃС‚РµР№ РѕРґРЅРѕРіРѕ С‚РёРїР°
+	 * @param array $post_data   - РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹ РґР°РЅРЅС‹Рµ РґР»СЏ POST-Р·Р°РїСЂРѕСЃР°
+	 * @return bool СЂРµР·СѓР»СЊС‚Р°С‚
+	 */
+	public function link($element, $action_data, $post_data = [])
+	{
+		return $this->action('link', $element, $action_data, $post_data);
+	}
+
+	/**
+	 * РЈРґР°Р»РµРЅРёРµ СЃСѓС‰РЅРѕСЃС‚РµР№ РїРѕ РёС… id
+	 * @param string $element    - companies | contacts | leads | customers
+	 * @param array $ids
+	 * @return bool СЂРµР·СѓР»СЊС‚Р°С‚
+	 */
+	public function remove($element, $ids)
+	{
+		switch($element) {
+			case AmoCRM_API::ELEMENT_COMPANIES:
+				$element = AmoCRM_API::ELEMENT_CONTACTS;
+			case AmoCRM_API::ELEMENT_CONTACTS:
+			case AmoCRM_API::ELEMENT_LEADS:
+				$url = $this->_protocol . $this->_subdomain . '.' . $this->_host . "/ajax/$element/multiple/delete/";
+
+				$this->_headers = [
+					'Accept: application/json',
+					'X-Requested-With: XMLHttpRequest'
+				];
+
+				$data = [
+					'ACTION' => 'DELETE',
+					'ID' => $ids
+				];
+
+				return $this->send_request($url, $data, FALSE);
+			default:
+				return $this->action('delete', $element, $ids);
+		}
+	}
+
+	/**
+	 * POST-Р·Р°РїСЂРѕСЃ РЅР° РґРµР№СЃС‚РІРёРµ
 	 * @param string $action
 	 * @param string $element
 	 * @param array $action_data
-	 * @param array $post_data - дополнительны данные для POST-запроса
+	 * @param array $post_data - РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹ РґР°РЅРЅС‹Рµ РґР»СЏ POST-Р·Р°РїСЂРѕСЃР°
 	 * @return array|false
 	 */
 	public function action($action, $element, $action_data, array $post_data = []) {
@@ -646,8 +708,8 @@ class AmoCRM_API {
 	}
 
 	/**
-	 * В этот метод вынесена старая логика возврата результата метода "action".
-	 * Данный метод можно переопределить в дочерних классах для реализации другой логики.
+	 * Р’ СЌС‚РѕС‚ РјРµС‚РѕРґ РІС‹РЅРµСЃРµРЅР° СЃС‚Р°СЂР°СЏ Р»РѕРіРёРєР° РІРѕР·РІСЂР°С‚Р° СЂРµР·СѓР»СЊС‚Р°С‚Р° РјРµС‚РѕРґР° "action".
+	 * Р”Р°РЅРЅС‹Р№ РјРµС‚РѕРґ РјРѕР¶РЅРѕ РїРµСЂРµРѕРїСЂРµРґРµР»РёС‚СЊ РІ РґРѕС‡РµСЂРЅРёС… РєР»Р°СЃСЃР°С… РґР»СЏ СЂРµР°Р»РёР·Р°С†РёРё РґСЂСѓРіРѕР№ Р»РѕРіРёРєРё.
 	 * @param array $response
 	 * @param string $entity
 	 * @param string|null $action
